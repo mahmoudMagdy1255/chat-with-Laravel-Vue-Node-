@@ -1,0 +1,171 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\DataTables\AdminsDatatables;
+use App\Admin;
+use Storage;
+
+class AdminController extends Controller
+{
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index(AdminsDatatables $AdminsDatatables)
+    {
+
+        return $AdminsDatatables->render('admin.admins.index' , ['title' => trans('admin.admins')]);
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create()
+    {
+        return view('admin.admins.create' , ['title' => trans('admin.create_record')]);
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        $data = $this->validate( $request , [
+            'name' => 'required|string|min:3|max:100',
+            'email' => 'required|email|unique:admins,email',
+            'password'  => 'required|min:4|max:15',
+            'confirm_password' => 'same:password',
+            'image' => 'sometimes:nullable|' . v_image()
+        ]);
+
+        if($request->hasFile('image') ){
+            $data['image'] = upload([
+                'file' => 'image',
+                'path' => 'admins',
+                'delete_file' => '' 
+            ]);
+        }else {
+            $data['image'] = 'admins/default.png';
+        }
+
+        $data['password'] = bcrypt($data['password']);
+        Admin::Create( $data );
+
+        session()->flash('success' , trans('admin.added') );
+
+        return redirect( aurl('admins') );
+
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function show($id)
+    {
+        //
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function edit($id)
+    {
+        $admin = Admin::find($id);
+        return view('admin.admins.edit' , ['title' => trans('admin.edit_record') , 'admin' => $admin]);
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, $id)
+    {
+        $data = $this->validate( $request , [
+            'name' => 'required|string|min:3|max:100',
+            'email' => 'required|email|unique:admins,email,' . $id,
+            'password'  => 'sometimes:nullable',
+            'confirm_password' => 'same:password',
+            'image' => 'sometimes:nullable|' . v_image()
+        ]);
+
+        $admin = Admin::find($id);
+
+        if($request->hasFile('image') ){
+            $data['image'] = upload([
+                'file' => 'image',
+                'path' => 'admins',
+                'delete_file' => $admin->image
+            ]);
+        }
+        if( !empty( $data['password'] ) ){
+            $data['password'] = bcrypt($data['password']);
+        }else {
+            unset( $data['password'] );
+        }
+
+        unset( $data['confirm_password'] );
+        
+        Admin::where('id' , $id)->Update( $data );
+
+        session()->flash('success' , trans('admin.updated') );
+
+        return redirect( aurl('admins') );
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy($id , $from = null)
+    {
+        $admin = Admin::find($id);
+        if ( $admin->image != 'admins/default.png') {
+            Storage::has($admin->image) ? Storage::delete($admin->image) : '';
+        }
+        
+        $admin->delete();
+
+        if( $from == null){
+           
+           session()->flash('success' , trans('admin.deleted') );
+
+            return redirect( aurl('admins') ); 
+        }
+        
+    }
+
+    public function destroy_all(Request $request)
+    {
+        if ( is_array( $request->item ) ) {
+            foreach ($request->item as $item) {
+                $this->destroy($item , 'destroy_all');
+            }
+        }else {
+            $this->destroy($request->item , 'destroy_all');
+        }
+
+        session()->flash('success' , trans('admin.deleted') );
+
+        return redirect( aurl('admins') );
+    }
+}

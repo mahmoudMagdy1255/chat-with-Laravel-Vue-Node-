@@ -1,0 +1,3 @@
+<a href="{{ route('users.edit' , ['id' => $id]) }}" class="btn btn-info"> 
+	<i class="fa fa-edit"></i>
+</a>
